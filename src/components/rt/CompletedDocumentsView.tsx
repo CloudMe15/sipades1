@@ -29,7 +29,8 @@ export const CompletedDocumentsView: React.FC = () => {
   const handleSendWaNotification = (req: CitizenRequest) => {
     const meta = SERVICE_METAS[req.serviceType];
     const nomorSurat = req.nomorSuratDesa || req.ticketNumber;
-    const msg = `Halo Bpk/Ibu ${req.namaLengkap}, Surat Resmi ${meta?.name || req.serviceType} (No: ${nomorSurat}) telah SELESAI ditandatangani oleh Kepala Desa Sukamaju dan distempel basah. Anda dapat mengambil fisik surat asli di Loket Pelayanan Kantor Desa Sukamaju pada jam kerja (08.00 - 15.00 WIB) dengan membawa e-KTP Asli. Bukti soft-copy surat ini juga dapat Anda simpan. Terima kasih. (Pengurus RT ${req.rt}/RW ${req.rw})`;
+    const desa = req.desa || 'Desa Kelayang';
+    const msg = `Halo Bpk/Ibu ${req.namaLengkap}, Surat Resmi ${meta?.name || req.serviceType} (No: ${nomorSurat}) telah SELESAI ditandatangani oleh Kepala ${desa} dan distempel basah. Anda dapat mengambil fisik surat asli di Loket Pelayanan Kantor ${desa}, Kec. Rakit Kulim pada jam kerja (08.00 - 15.00 WIB) dengan membawa e-KTP Asli. Bukti soft-copy surat ini juga dapat Anda simpan. Terima kasih. (Pengurus RT ${req.rt}/RW ${req.rw})`;
     sendManualWhatsApp(req.nomorWhatsapp, msg);
   };
 
@@ -46,7 +47,7 @@ export const CompletedDocumentsView: React.FC = () => {
               Dokumen Selesai & Terbit (Siap Diteruskan ke Warga)
             </h3>
             <p className="text-xs text-emerald-800 mt-0.5">
-              Surat yang telah ditandatangani basah oleh Kepala Desa Sukamaju dan discan oleh Operator Desa.
+              Surat yang telah ditandatangani basah oleh Kepala Desa dan discan oleh Operator Desa.
               RT dapat mengunduh soft-copy dan meneruskannya ke WhatsApp warga sebagai bukti bahwa surat fisik asli siap diambil di kantor desa.
             </p>
           </div>

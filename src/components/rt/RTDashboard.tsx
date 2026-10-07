@@ -41,10 +41,10 @@ export const RTDashboard: React.FC = () => {
           <div className="space-y-1">
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-emerald-200 text-xs font-semibold">
               <Users className="w-3.5 h-3.5" />
-              <span>Portal Frontline Pelayanan Warga • {currentUser.identifier}</span>
+              <span>Portal Frontline Pelayanan Warga • {currentUser?.identifier || 'RT 01 / RW 03'}</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black tracking-tight">
-              Selamat Bertugas, Pak/Bu {currentUser.name}
+              Selamat Bertugas, Pak/Bu {currentUser?.name || 'Ketua RT'}
             </h2>
             <p className="text-xs sm:text-sm text-emerald-100/90 max-w-2xl">
               Warga tidak perlu antre manual di balai desa. Cukup sampaikan permohonan ke RT, sistem SIPADES meneruskannya ke operator kantor desa secara digital.

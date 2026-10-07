@@ -26,7 +26,8 @@ export const RequestDetailModal: React.FC = () => {
     currentUser,
     setLetterModalRequest,
     setVerificationModalRequest,
-    sendManualWhatsApp
+    sendManualWhatsApp,
+    downloadDocument
   } = useApp();
 
   if (!selectedRequest) return null;
@@ -34,9 +35,10 @@ export const RequestDetailModal: React.FC = () => {
   const serviceMeta = SERVICE_METAS[selectedRequest.serviceType];
 
   const handleSendWaReminder = () => {
-    let msg = `Halo Bpk/Ibu ${selectedRequest.namaLengkap}, update permohonan surat ${selectedRequest.serviceType} (Tiket: ${selectedRequest.ticketNumber}) di Desa Sukamaju: `;
+    const desa = selectedRequest.desa || 'Desa Kelayang';
+    let msg = `Halo Bpk/Ibu ${selectedRequest.namaLengkap}, update permohonan surat ${selectedRequest.serviceType} (Tiket: ${selectedRequest.ticketNumber}) di ${desa}, Kec. Rakit Kulim: `;
     if (selectedRequest.status === 'selesai_siap_ambil') {
-      msg += `Surat telah SELESAI ditandatangani Kepala Desa Sukamaju. Silakan ambil fisik surat di Kantor Desa Sukamaju dengan membawa KTP Asli.`;
+      msg += `Surat telah SELESAI ditandatangani Kepala ${desa}. Silakan ambil fisik surat di Kantor ${desa} dengan membawa KTP Asli.`;
     } else if (selectedRequest.status === 'butuh_perbaikan') {
       msg += `Memerlukan PERBAIKAN BERKAS: ${selectedRequest.rejectionReason || 'Mohon hubungi RT'}`;
     } else {
@@ -250,15 +252,25 @@ export const RequestDetailModal: React.FC = () => {
                       </p>
                     </div>
 
-                    <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
+                    <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
                       <a
                         href={att.fileUrl}
                         target="_blank"
                         rel="noreferrer"
                         className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
                       >
-                        <Eye className="w-3.5 h-3.5" /> Buka Preview
+                        <Eye className="w-3.5 h-3.5" /> Preview
                       </a>
+
+                      <button
+                        type="button"
+                        onClick={() => downloadDocument(att.fileUrl, att.name)}
+                        className="text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-lg flex items-center gap-1 cursor-pointer transition shadow-2xs"
+                        title={`Unduh ${att.name}`}
+                      >
+                        <Download className="w-3.5 h-3.5 text-emerald-600" /> Unduh
+                      </button>
+
                       {isScanOfficial && (
                         <button
                           onClick={() => {
@@ -267,7 +279,7 @@ export const RequestDetailModal: React.FC = () => {
                           }}
                           className="text-xs text-emerald-700 hover:text-emerald-900 font-bold flex items-center gap-1 cursor-pointer"
                         >
-                          <Download className="w-3.5 h-3.5" /> Lihat Surat
+                          <Download className="w-3.5 h-3.5" /> Surat Resmi
                         </button>
                       )}
                     </div>

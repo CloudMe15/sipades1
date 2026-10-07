@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { MonthlyReportModal } from './MonthlyReportModal';
 import {
   Landmark,
   BarChart3,
@@ -21,6 +22,7 @@ export const KecamatanDashboard: React.FC = () => {
 
   const [selectedVillage, setSelectedVillage] = useState<string>('all');
   const [selectedMonth, setSelectedMonth] = useState('Oktober 2026');
+  const [reportModalOpen, setReportModalOpen] = useState(false);
 
   // Aggregated totals
   const totalSubmissions = villageStats.reduce((sum, v) => sum + v.totalRequests, 0);
@@ -39,9 +41,7 @@ export const KecamatanDashboard: React.FC = () => {
   ];
 
   const handleExportReport = () => {
-    alert(
-      `Laporan Rekapitulasi Pelayanan Administrasi Desa se-Kecamatan Sukamaju Periode ${selectedMonth} berhasil diunduh (Format PDF Rekap Eksekutif).`
-    );
+    setReportModalOpen(true);
   };
 
   return (
@@ -52,13 +52,13 @@ export const KecamatanDashboard: React.FC = () => {
           <div className="space-y-1">
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-purple-200 text-xs font-semibold">
               <Landmark className="w-3.5 h-3.5" />
-              <span>Kantor Kecamatan Sukamaju • Pengawasan Mutu & Pelayanan Publik</span>
+              <span>Kantor Kecamatan Rakit Kulim • Pengawasan Mutu & Pelayanan Publik PATEN</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black tracking-tight">
-              Sistem Monitoring & Evaluasi Kinerja Desa Terpadu
+              Sistem Monitoring & Evaluasi Kinerja 19 Desa Terpadu
             </h2>
             <p className="text-xs sm:text-sm text-purple-200/90 max-w-2xl">
-              Memantau kecepatan SLA (Service Level Agreement), volume permohonan surat, dan tren kebutuhan warga lintas 5 desa bawahan tanpa mengintervensi alur kerja internal desa.
+              Memantau kecepatan SLA (Service Level Agreement), volume permohonan surat, dan tren kebutuhan warga lintas 19 desa se-Kecamatan Rakit Kulim, Kab. Indragiri Hulu tanpa mengintervensi alur kerja internal desa.
             </p>
           </div>
 
@@ -149,14 +149,14 @@ export const KecamatanDashboard: React.FC = () => {
           </div>
           <div className="mt-3">
             <span className="text-xl font-black text-slate-900 block truncate">
-              Desa Sukamaju
+              Desa Kelayang (Ibukota Kec)
             </span>
             <span className="text-xs text-emerald-700 font-bold">
-              SLA: 4.8 Jam • Skor 96.2%
+              SLA: 4.2 Jam • Skor 96.5%
             </span>
           </div>
           <p className="text-[11px] text-slate-400 mt-1">
-            Peringkat 1 dari 5 Desa di Kecamatan
+            Peringkat 1 dari 19 Desa di Kecamatan Rakit Kulim
           </p>
         </div>
       </div>
@@ -322,7 +322,7 @@ export const KecamatanDashboard: React.FC = () => {
                 💡 Insight Strategis Kecamatan:
               </span>
               <p className="leading-relaxed">
-                "Bulan ini terjadi lonjakan permohonan <strong>Surat Keterangan Usaha (SKU)</strong> sebesar 34% di Desa Sukamaju seiring pembukaan kuota Kredit Usaha Rakyat (KUR) BRI, dan lonjakan <strong>SKTM</strong> di Desa Bojonggede untuk pendaftaran beasiswa KIP Kuliah."
+                "Bulan ini terjadi lonjakan permohonan <strong>Surat Keterangan Usaha (SKU)</strong> sebesar 34% di Desa Kelayang dan Kota Baru seiring pembukaan kuota Kredit Usaha Rakyat (KUR) BRI, serta lonjakan <strong>SKTM</strong> di Desa Bukit Indah dan Kuantan Tenang untuk pendaftaran beasiswa KIP Kuliah."
               </p>
             </div>
           </div>
@@ -339,6 +339,14 @@ export const KecamatanDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Modal Ekspor & Cetak Rekap Laporan Bulanan */}
+      <MonthlyReportModal
+        isOpen={reportModalOpen}
+        onClose={() => setReportModalOpen(false)}
+        villageStats={villageStats}
+        requests={requests}
+      />
     </div>
   );
 };

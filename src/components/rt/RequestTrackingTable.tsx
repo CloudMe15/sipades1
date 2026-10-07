@@ -77,9 +77,10 @@ export const RequestTrackingTable: React.FC<RequestTrackingTableProps> = ({
   });
 
   const handleSendWa = (req: CitizenRequest) => {
-    let msg = `Halo Bpk/Ibu ${req.namaLengkap}, update permohonan surat ${req.serviceType} (Tiket: ${req.ticketNumber}) di Desa Sukamaju: `;
+    const desa = req.desa || 'Desa Kelayang';
+    let msg = `Halo Bpk/Ibu ${req.namaLengkap}, update permohonan surat ${req.serviceType} (Tiket: ${req.ticketNumber}) di ${desa}, Kec. Rakit Kulim: `;
     if (req.status === 'selesai_siap_ambil') {
-      msg += `Surat telah SELESAI ditandatangani Kepala Desa Sukamaju. Silakan ambil fisik surat di Kantor Desa Sukamaju dengan membawa KTP Asli.`;
+      msg += `Surat telah SELESAI ditandatangani Kepala ${desa}. Silakan ambil fisik surat di Kantor ${desa} dengan membawa KTP Asli.`;
     } else if (req.status === 'butuh_perbaikan') {
       msg += `Memerlukan PERBAIKAN BERKAS: "${req.rejectionReason || 'Mohon cek berkas KK/KTP'}"`;
     } else {

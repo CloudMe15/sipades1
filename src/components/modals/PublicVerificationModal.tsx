@@ -1,6 +1,6 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
-import { SERVICE_METAS } from '../../data/mockData';
+import { SERVICE_METAS, RAKIT_KULIM_VILLAGES } from '../../data/mockData';
 import {
   X,
   CheckCircle2,
@@ -18,7 +18,13 @@ export const PublicVerificationModal: React.FC = () => {
 
   const req = verificationModalRequest;
   const meta = SERVICE_METAS[req.serviceType];
-  const nomorSurat = req.nomorSuratDesa || `470/120/DS-SKM/X/2026`;
+  const desaName = req.desa || 'Desa Kelayang';
+  const villageInfo = RAKIT_KULIM_VILLAGES.find(
+    v => v.name.toLowerCase() === desaName.toLowerCase()
+  ) || RAKIT_KULIM_VILLAGES[0];
+  const kadesName = villageInfo?.kades || 'Kepala Desa';
+  const desaCode = desaName.replace('Desa ', '').toUpperCase().slice(0, 3);
+  const nomorSurat = req.nomorSuratDesa || `470/120/DS-${desaCode}/X/2026`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
@@ -40,7 +46,7 @@ export const PublicVerificationModal: React.FC = () => {
             Dokumen Resmi Terverifikasi
           </h3>
           <p className="text-xs text-emerald-100 mt-1">
-            Sistem E-Verifikasi Keabsahan Administrasi Desa Sukamaju
+            Sistem E-Verifikasi Keabsahan Administrasi {desaName} • Kec. Rakit Kulim
           </p>
         </div>
 
@@ -78,13 +84,13 @@ export const PublicVerificationModal: React.FC = () => {
             <div className="flex justify-between py-1.5 border-b border-slate-100">
               <span className="text-slate-500">Instansi Penerbit:</span>
               <span className="font-medium text-slate-800">
-                Pemerintah Desa Sukamaju, Kec. Sukamaju
+                Pemerintah {desaName}, Kec. Rakit Kulim
               </span>
             </div>
             <div className="flex justify-between py-1.5 border-b border-slate-100">
               <span className="text-slate-500">Pejabat Penandatangan:</span>
               <span className="font-medium text-slate-900">
-                H. Dadang Kurniawan, S.IP (Kepala Desa)
+                {kadesName} (Kepala {desaName})
               </span>
             </div>
             <div className="flex justify-between py-1.5">

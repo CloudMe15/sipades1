@@ -1,14 +1,12 @@
 import React, { useRef } from 'react';
 import { useApp } from '../../context/AppContext';
-import { SERVICE_METAS } from '../../data/mockData';
+import { SERVICE_METAS, RAKIT_KULIM_VILLAGES } from '../../data/mockData';
 import {
   X,
   Printer,
   Send,
   ShieldCheck,
-  Download,
   Building,
-  CheckCircle2,
   QrCode
 } from 'lucide-react';
 
@@ -26,14 +24,20 @@ export const LetterPreviewModal: React.FC = () => {
 
   const req = letterModalRequest;
   const meta = SERVICE_METAS[req.serviceType];
-  const nomorSurat = req.nomorSuratDesa || `470/120/DS-SKM/X/2026`;
+  const desaName = req.desa || 'Desa Kelayang';
+  const villageInfo = RAKIT_KULIM_VILLAGES.find(
+    v => v.name.toLowerCase() === desaName.toLowerCase()
+  ) || RAKIT_KULIM_VILLAGES[0];
+  const kadesName = villageInfo?.kades || 'Kepala Desa';
+  const desaCode = desaName.replace('Desa ', '').toUpperCase().slice(0, 3);
+  const nomorSurat = req.nomorSuratDesa || `470/120/DS-${desaCode}/X/2026`;
 
   const handlePrint = () => {
     window.print();
   };
 
   const handleForwardWhatsApp = () => {
-    const waText = `Yth. Bpk/Ibu ${req.namaLengkap}, soft-copy ${meta?.name || req.serviceType} (Nomor Surat: ${nomorSurat}) telah SELESAI ditandatangani Kepala Desa Sukamaju. Anda dapat mengambil fisik surat asli di Kantor Desa Sukamaju pada jam kerja dengan membawa KTP Asli. Terima kasih. (Pelayanan Kantor Desa Sukamaju)`;
+    const waText = `Yth. Bpk/Ibu ${req.namaLengkap}, soft-copy ${meta?.name || req.serviceType} (Nomor Surat: ${nomorSurat}) telah SELESAI ditandatangani Kepala ${desaName}. Anda dapat mengambil fisik surat asli di Kantor ${desaName}, Kec. Rakit Kulim pada jam kerja dengan membawa KTP Asli. Terima kasih. (Pelayanan Kantor ${desaName})`;
     sendManualWhatsApp(req.nomorWhatsapp, waText);
   };
 
@@ -44,12 +48,12 @@ export const LetterPreviewModal: React.FC = () => {
         return (
           <div className="space-y-3 leading-relaxed text-justify">
             <p>
-              Menerangkan dengan sebenarnya bahwa orang tersebut di atas adalah benar-benar penduduk yang bertempat tinggal di wilayah Desa Sukamaju, Kecamatan Sukamaju, Kabupaten Bogor, dan berdasarkan data yang ada pada kami serta survei lapangan, yang bersangkutan benar memiliki kegiatan usaha sebagai berikut:
+              Menerangkan dengan sebenarnya bahwa orang tersebut di atas adalah benar-benar penduduk yang bertempat tinggal di wilayah {desaName}, Kecamatan Rakit Kulim, Kabupaten Indragiri Hulu, Riau, dan berdasarkan data yang ada pada kami serta survei lapangan, yang bersangkutan benar memiliki kegiatan usaha sebagai berikut:
             </p>
             <div className="bg-slate-50/70 p-3 rounded border border-slate-200 text-xs space-y-1.5 ml-4 mr-4 font-mono">
               <div className="flex">
                 <span className="w-36 font-sans font-semibold">Nama Usaha:</span>
-                <span className="font-bold">{req.rincianTambahan?.['Nama Usaha'] || 'Warung Serba Ada Berkah'}</span>
+                <span className="font-bold">{req.rincianTambahan?.['Nama Usaha'] || 'Warung Kelontong / Usaha Mikro Berkah'}</span>
               </div>
               <div className="flex">
                 <span className="w-36 font-sans font-semibold">Bidang Usaha:</span>
@@ -71,7 +75,7 @@ export const LetterPreviewModal: React.FC = () => {
         return (
           <div className="space-y-3 leading-relaxed text-justify">
             <p>
-              Menerangkan dengan sebenarnya bahwa orang tersebut di atas adalah benar-benar penduduk Desa Sukamaju dan berdasarkan catatan administrasi desa kami:
+              Menerangkan dengan sebenarnya bahwa orang tersebut di atas adalah benar-benar penduduk {desaName}, Kec. Rakit Kulim dan berdasarkan catatan administrasi desa kami:
             </p>
             <ol className="list-decimal pl-6 space-y-1">
               <li>Berkelakuan baik serta tidak pernah terlibat dalam tindakan kriminalitas / kejahatan apapun;</li>
@@ -79,7 +83,7 @@ export const LetterPreviewModal: React.FC = () => {
               <li>Bukan anggota dari organisasi terlarang menurut ketentuan perundang-undangan yang berlaku.</li>
             </ol>
             <p>
-              Surat Pengantar ini diterbitkan sebagai kelengkapan permohonan penerbitan <strong>Surat Keterangan Catatan Kepolisian (SKCK)</strong> di Kepolisian Sektor (Polsek) setempat untuk keperluan:{' '}
+              Surat Pengantar ini diterbitkan sebagai kelengkapan permohonan penerbitan <strong>Surat Keterangan Catatan Kepolisian (SKCK)</strong> di Kepolisian Sektor (Polsek) Kelayang / Rakit Kulim untuk keperluan:{' '}
               <strong className="underline underline-offset-2">{req.keperluan}</strong>.
             </p>
           </div>
@@ -89,7 +93,7 @@ export const LetterPreviewModal: React.FC = () => {
         return (
           <div className="space-y-3 leading-relaxed text-justify">
             <p>
-              Menerangkan dengan sebenarnya bahwa orang tersebut di atas adalah benar-benar penduduk Desa Sukamaju, dan berdasarkan verifikasi lapangan serta basis data terpadu kesejahteraan sosial, keluarga bersangkutan tergolong dalam keluarga:
+              Menerangkan dengan sebenarnya bahwa orang tersebut di atas adalah benar-benar penduduk {desaName}, Kecamatan Rakit Kulim, dan berdasarkan verifikasi lapangan serta basis data terpadu kesejahteraan sosial, keluarga bersangkutan tergolong dalam keluarga:
             </p>
             <div className="p-2.5 bg-slate-100 rounded text-center font-bold text-slate-800">
               BERPENGHASILAN RENDAH / KURANG MAMPU (DESIL SOSIAL EKONOMI RENDAH)
@@ -105,7 +109,7 @@ export const LetterPreviewModal: React.FC = () => {
         return (
           <div className="space-y-3 leading-relaxed text-justify">
             <p>
-              Menerangkan dengan sebenarnya bahwa orang tersebut di atas adalah benar-benar berdomisili dan menetap di wilayah Desa Sukamaju pada alamat tersebut di atas sejak tahun 2021 hingga saat surat keterangan ini diterbitkan.
+              Menerangkan dengan sebenarnya bahwa orang tersebut di atas adalah benar-benar berdomisili dan menetap di wilayah {desaName}, Kecamatan Rakit Kulim pada alamat tersebut di atas sejak beberapa tahun terakhir hingga saat surat keterangan ini diterbitkan.
             </p>
             <p>
               Surat Keterangan Domisili ini dibuat untuk dipergunakan sebagai:{' '}
@@ -118,7 +122,7 @@ export const LetterPreviewModal: React.FC = () => {
         return (
           <div className="space-y-3 leading-relaxed text-justify">
             <p>
-              Menerangkan dengan sebenarnya bahwa orang tersebut di atas adalah benar-benar warga penduduk Desa Sukamaju, Kecamatan Sukamaju, Kabupaten Bogor.
+              Menerangkan dengan sebenarnya bahwa orang tersebut di atas adalah benar-benar warga penduduk {desaName}, Kecamatan Rakit Kulim, Kabupaten Indragiri Hulu, Riau.
             </p>
             <p>
               Surat keterangan ini diberikan kepada yang bersangkutan untuk kelengkapan administrasi permohonan:{' '}
@@ -141,7 +145,7 @@ export const LetterPreviewModal: React.FC = () => {
                 Pratinjau Draf Cetak Surat Resmi Desa
               </h3>
               <p className="text-[11px] text-slate-400">
-                Format Kop Surat Standar Pemerintah Desa Sukamaju • Terintegrasi QR Verifikasi
+                Format Kop Surat Standar Pemerintah {desaName} • Kec. Rakit Kulim, Indragiri Hulu
               </p>
             </div>
           </div>
@@ -192,28 +196,27 @@ export const LetterPreviewModal: React.FC = () => {
             {/* Kop Surat Resmi */}
             <div className="flex items-center justify-between border-b-[3px] border-black pb-3 mb-1">
               <div className="w-20 h-20 shrink-0 flex items-center justify-center p-1">
-                {/* Indonesian Garuda / Lambang Desa Icon Representation */}
                 <div className="w-16 h-16 rounded-full border-2 border-slate-900 flex flex-col items-center justify-center text-center p-1 bg-amber-50/40">
-                  <span className="text-[8px] font-sans font-bold tracking-tighter uppercase">KABUPATEN</span>
-                  <span className="text-xs font-serif font-black">BOGOR</span>
-                  <span className="text-[7px] font-sans text-slate-600">★ ★ ★</span>
+                  <span className="text-[7.5px] font-sans font-bold tracking-tighter uppercase">KABUPATEN</span>
+                  <span className="text-[11px] font-serif font-black leading-none">INHU</span>
+                  <span className="text-[7px] font-sans text-slate-600">★ RIAU ★</span>
                 </div>
               </div>
 
               <div className="flex-1 text-center font-serif px-2">
                 <h4 className="text-xs font-sans font-bold uppercase tracking-widest text-slate-700">
-                  PEMERINTAH KABUPATEN BOGOR
+                  PEMERINTAH KABUPATEN INDRAGIRI HULU
                 </h4>
                 <h3 className="text-sm font-sans font-bold uppercase tracking-wider text-slate-800">
-                  KECAMATAN SUKAMAJU
+                  KECAMATAN RAKIT KULIM
                 </h3>
                 <h2 className="text-lg font-sans font-black tracking-wider text-black">
-                  KANTOR KEPALA DESA SUKAMAJU
+                  KANTOR KEPALA {desaName.toUpperCase()}
                 </h2>
                 <p className="text-[10px] font-sans text-slate-600 mt-0.5">
-                  Jl. Raya Sukamaju KM. 07 No. 45, Desa Sukamaju, Kode Pos 16720
+                  Alamat: Kantor Kepala {desaName}, Kec. Rakit Kulim, Kab. Indragiri Hulu, Kode Pos 29352
                   <br />
-                  Laman: sukamaju.desa.id • Pos-el: pelayanan@sukamaju.desa.id • Telp: (0251) 832-1980
+                  Laman: rakitkulim.desa.id • Pos-el: pelayanan.{desaName.toLowerCase().replace(/[^a-z0-9]/g, '')}@rakitkulim.desa.id
                 </p>
               </div>
 
@@ -239,7 +242,7 @@ export const LetterPreviewModal: React.FC = () => {
 
             {/* Opening Paragraph */}
             <p className="text-justify mb-4 indent-8 leading-relaxed">
-              Yang bertanda tangan di bawah ini, Kepala Desa Sukamaju, Kecamatan Sukamaju, Kabupaten Bogor, Provinsi Jawa Barat, dengan ini menerangkan bahwa:
+              Yang bertanda tangan di bawah ini, Kepala {desaName}, Kecamatan Rakit Kulim, Kabupaten Indragiri Hulu, Provinsi Riau, dengan ini menerangkan bahwa:
             </p>
 
             {/* Citizen Data Table */}
@@ -252,51 +255,48 @@ export const LetterPreviewModal: React.FC = () => {
               <div className="flex">
                 <span className="w-48 text-slate-600">2. NIK (No. KTP)</span>
                 <span className="w-3">:</span>
-                <span className="font-mono font-bold text-slate-900">{req.nik}</span>
+                <span className="font-mono font-bold text-slate-800">{req.nik}</span>
               </div>
               <div className="flex">
-                <span className="w-48 text-slate-600">3. No. Kartu Keluarga</span>
+                <span className="w-48 text-slate-600">3. Tempat, Tgl. Lahir</span>
                 <span className="w-3">:</span>
-                <span className="font-mono text-slate-800">{req.nomorKk || '-'}</span>
+                <span>
+                  {req.tempatLahir}, {req.tanggalLahir}
+                </span>
               </div>
               <div className="flex">
-                <span className="w-48 text-slate-600">4. Tempat / Tanggal Lahir</span>
+                <span className="w-48 text-slate-600">4. Jenis Kelamin</span>
                 <span className="w-3">:</span>
-                <span className="text-slate-900">{req.tempatLahir}, {req.tanggalLahir}</span>
+                <span>{req.jenisKelamin}</span>
               </div>
               <div className="flex">
-                <span className="w-48 text-slate-600">5. Jenis Kelamin</span>
+                <span className="w-48 text-slate-600">5. Agama</span>
                 <span className="w-3">:</span>
-                <span className="text-slate-900">{req.jenisKelamin}</span>
+                <span>{req.agama}</span>
               </div>
               <div className="flex">
-                <span className="w-48 text-slate-600">6. Agama</span>
+                <span className="w-48 text-slate-600">6. Pekerjaan</span>
                 <span className="w-3">:</span>
-                <span className="text-slate-900">{req.agama}</span>
+                <span>{req.pekerjaan}</span>
               </div>
               <div className="flex">
-                <span className="w-48 text-slate-600">7. Pekerjaan</span>
+                <span className="w-48 text-slate-600">7. Alamat Domisili</span>
                 <span className="w-3">:</span>
-                <span className="text-slate-900">{req.pekerjaan}</span>
-              </div>
-              <div className="flex">
-                <span className="w-48 text-slate-600">8. Alamat Sesuai KTP</span>
-                <span className="w-3">:</span>
-                <span className="text-slate-900 leading-tight">
-                  {req.alamat}, RT {req.rt} / RW {req.rw}, Desa Sukamaju, Kec. Sukamaju, Kab. Bogor
+                <span>
+                  {req.alamat}, RT {req.rt} / RW {req.rw}, {desaName}, Kec. Rakit Kulim, Kab. Indragiri Hulu, Riau
                 </span>
               </div>
             </div>
 
-            {/* Letter Body by Type */}
-            <div className="mb-5">{renderLetterBody()}</div>
+            {/* Letter Dynamic Body */}
+            {renderLetterBody()}
 
-            {/* Closing Formula */}
-            <p className="text-justify mb-8 indent-8 leading-relaxed">
-              Demikian Surat Keterangan ini kami buat dan berikan kepada yang bersangkutan dengan sebenarnya, agar dapat dipergunakan sebagaimana mestinya dan sesuai dengan ketentuan peraturan yang berlaku.
+            {/* Closing Paragraph */}
+            <p className="text-justify my-4 indent-8 leading-relaxed">
+              Demikian surat keterangan ini kami buat dengan sebenarnya dan tanpa ada paksaan dari pihak manapun, agar dapat dipergunakan sebagaimana mestinya oleh yang berkepentingan.
             </p>
 
-            {/* Signature & Seal Area */}
+            {/* Signature Section */}
             <div className="flex justify-between items-end pt-4">
               {/* Left Side: Citizen Signature or QR */}
               <div className="w-56 text-center font-sans text-xs">
@@ -310,11 +310,11 @@ export const LetterPreviewModal: React.FC = () => {
               {/* Right Side: Village Head Signature & Wet Seal */}
               <div className="w-72 text-center font-sans text-xs relative">
                 <p className="text-[11px] text-slate-700">
-                  Ditetapkan di: Sukamaju<br />
+                  Ditetapkan di: {desaName.replace('Desa ', '')}<br />
                   Pada tanggal: {req.createdAt.split(',')[0] || '06 Oktober 2026'}
                 </p>
                 <p className="font-bold text-slate-900 mt-1 uppercase tracking-wider">
-                  KEPALA DESA SUKAMAJU
+                  KEPALA {desaName.toUpperCase()}
                 </p>
 
                 {/* Wet Stamp & Signature Representation */}
@@ -327,24 +327,24 @@ export const LetterPreviewModal: React.FC = () => {
                     }}
                   >
                     <div className="w-20 h-20 rounded-full border border-dashed border-violet-700 flex flex-col items-center justify-center text-center p-0.5 leading-tight">
-                      <span className="text-[6.5px]">PEMERINTAH KABUPATEN</span>
-                      <span className="text-[7.5px] font-black">★ DESA SUKAMAJU ★</span>
-                      <span className="text-[6px] text-violet-600">KEC. SUKAMAJU</span>
+                      <span className="text-[6px]">KAB. INDRAGIRI HULU</span>
+                      <span className="text-[7px] font-black">★ {desaName.toUpperCase()} ★</span>
+                      <span className="text-[6px] text-violet-600">KEC. RAKIT KULIM</span>
                     </div>
                   </div>
 
                   {/* Calligraphic Signature Simulation */}
                   <div className="relative z-10 text-blue-900 font-serif italic text-2xl font-bold tracking-widest rotate-[-4deg] select-none">
-                    Dadang Kurniawan
+                    {kadesName.split(',')[0].replace('H. ', '').replace('Hj. ', '')}
                   </div>
                 </div>
 
                 <div className="text-slate-900 font-sans">
                   <p className="font-bold uppercase underline underline-offset-2">
-                    H. DADANG KURNIAWAN, S.IP
+                    {kadesName}
                   </p>
                   <p className="text-[10px] text-slate-600 mt-0.5">
-                    NIP. 19740815 199903 1 004
+                    Kepala {desaName}
                   </p>
                 </div>
               </div>
@@ -357,11 +357,11 @@ export const LetterPreviewModal: React.FC = () => {
                 <span>
                   Dokumen Elektronik Sah SIPADES • Kode Hash:{' '}
                   <span className="font-mono font-bold text-slate-700">
-                    DS-SKM-{req.id.toUpperCase()}
+                    RK-{desaCode}-{req.id.toUpperCase()}
                   </span>
                 </span>
               </div>
-              <span>Dicetak melalui Sistem Pelayanan Administrasi Desa Sukamaju</span>
+              <span>Dicetak melalui Sistem Pelayanan Administrasi Desa Terpadu Kec. Rakit Kulim</span>
             </div>
           </div>
         </div>

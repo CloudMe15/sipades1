@@ -14,11 +14,16 @@ import {
   Building2,
   TrendingUp,
   FileCheck2,
-  AlertCircle
+  AlertCircle,
+  Download
 } from 'lucide-react';
 
 export const OperatorDashboard: React.FC = () => {
-  const { requests, currentUser } = useApp();
+  const {
+    requests,
+    currentUser,
+    exportRequestsToCsv
+  } = useApp();
 
   const [activeMenu, setActiveMenu] = useState<
     'verification' | 'printing' | 'completion' | 'handover'
@@ -41,22 +46,25 @@ export const OperatorDashboard: React.FC = () => {
           <div className="space-y-1">
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-blue-200 text-xs font-semibold">
               <Building2 className="w-3.5 h-3.5" />
-              <span>Unit Pelayanan Administrasi Desa Sukamaju (Loket Paten)</span>
+              <span>Unit Pelayanan Administrasi {currentUser?.village || 'Desa Kelayang'} • Kec. Rakit Kulim</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black tracking-tight">
-              Dashboard Operator Pelayanan: Kang Asep
+              Dashboard Operator: {currentUser?.name || 'Operator Loket'}
             </h2>
             <p className="text-xs sm:text-sm text-blue-100/90 max-w-2xl">
-              Alur kerja terpadu: Verifikasi berkas masuk dari RT, cetak surat fisik ber-Kop resmi, pengajuan tanda tangan basah Kades, scan surat terbit, hingga pencatatan serah terima buku tamu digital.
+              Alur kerja terpadu: Verifikasi berkas masuk dari seluruh RT se-Kecamatan Rakit Kulim, cetak surat fisik ber-Kop resmi desa, pengajuan tanda tangan basah Kades, scan surat terbit, hingga pencatatan serah terima buku tamu digital.
             </p>
           </div>
 
-          <div className="flex items-center gap-2 bg-white/10 backdrop-blur-xs px-4 py-2 rounded-xl border border-white/20">
-            <TrendingUp className="w-5 h-5 text-emerald-400" />
-            <div className="text-right">
-              <div className="text-xs text-blue-200 font-medium">SLA Rata-rata Pelayanan</div>
-              <div className="text-sm font-black text-white">4.8 Jam (Sangat Cepat)</div>
-            </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => exportRequestsToCsv()}
+              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 shadow transition cursor-pointer"
+              title="Unduh seluruh rekapan permohonan warga ke format Excel / CSV"
+            >
+              <Download className="w-4 h-4" />
+              <span>Export Rekap Excel ({requests.length})</span>
+            </button>
           </div>
         </div>
       </div>

@@ -1,4 +1,4 @@
-export type UserRole = 'rt' | 'operator' | 'kecamatan';
+export type UserRole = 'rt' | 'operator' | 'kecamatan' | 'admin';
 
 export type RequestStatus =
   | 'menunggu_verifikasi'    // 🟡 Menunggu Verifikasi Operator
@@ -99,12 +99,19 @@ export interface CitizenRequest {
 
 export interface CurrentUser {
   id: string;
+  username: string;
+  password?: string;
+  email?: string;
   name: string;
   role: UserRole;
-  identifier: string; // e.g. "RT 01 / RW 03", "Operator Umum", "Camat Sukamaju"
+  identifier: string; // e.g. "RT 01 / RW 03", "Operator Umum", "Kasi Pelayanan Kecamatan", "Super Admin Master"
   village: string;
   avatar: string;
   phone: string;
+  status?: 'active' | 'pending' | 'rejected';
+  emailVerified?: boolean;
+  emailVerificationCode?: string;
+  registeredAt?: string;
 }
 
 export interface WhatsAppMessageLog {

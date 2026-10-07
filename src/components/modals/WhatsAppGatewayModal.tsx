@@ -27,7 +27,7 @@ export const WhatsAppGatewayModal: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'outbox' | 'config' | 'test'>('outbox');
   const [testPhone, setTestPhone] = useState('081234567890');
   const [testMessage, setTestMessage] = useState(
-    'Halo Bpk/Ibu, ini adalah uji coba pesan otomatis dari WhatsApp Gateway Pelayanan Desa Sukamaju.'
+    'Halo Bpk/Ibu, ini adalah uji coba pesan otomatis dari WhatsApp Gateway SIPADES Kecamatan Rakit Kulim.'
   );
 
   if (!waModalOpen) return null;

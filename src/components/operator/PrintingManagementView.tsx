@@ -43,7 +43,7 @@ export const PrintingManagementView: React.FC = () => {
               Manajemen Pencetakan & Tanda Tangan Kades
             </h3>
             <p className="text-xs text-blue-800 mt-0.5">
-              Kelola pencetakan draf surat fisik dengan Kop Surat resmi Desa Sukamaju dan pengajuan ke meja Kepala Desa untuk tanda tangan basah serta stempel dinas.
+              Kelola pencetakan draf surat fisik dengan Kop Surat resmi desa se-Kecamatan Rakit Kulim dan pengajuan ke meja Kepala Desa untuk tanda tangan basah serta stempel dinas.
             </p>
           </div>
         </div>

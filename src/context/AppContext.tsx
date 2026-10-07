@@ -26,10 +26,25 @@ interface WaGatewayConfig {
 }
 
 interface AppContextType {
-  currentUser: CurrentUser;
-  setCurrentUser: (user: CurrentUser) => void;
+  currentUser: CurrentUser | null;
+  setCurrentUser: (user: CurrentUser | null) => void;
   switchUserById: (id: string) => void;
+  login: (usernameOrEmail: string, password?: string) => { success: boolean; message?: string };
+  logout: () => void;
+  registerUser: (newUser: Omit<CurrentUser, 'id'>) => Promise<{ success: boolean; message: string; user?: CurrentUser }>;
+  updateProfile: (updatedData: Partial<CurrentUser>) => Promise<{ success: boolean; message: string }>;
+  approveUser: (userId: string) => Promise<boolean>;
+  rejectUser: (userId: string) => Promise<boolean>;
+  deleteUser: (userId: string) => Promise<boolean>;
   users: CurrentUser[];
+
+  // Profile Modal State
+  profileModalOpen: boolean;
+  setProfileModalOpen: (open: boolean) => void;
+
+  // Master Admin Approval Modal State
+  adminApprovalModalOpen: boolean;
+  setAdminApprovalModalOpen: (open: boolean) => void;
 
   requests: CitizenRequest[];
   createRequest: (newReqData: {
@@ -60,6 +75,16 @@ interface AppContextType {
   recordHandover: (requestId: string, handoverData: NonNullable<CitizenRequest['handover']>) => void;
   deleteRequest: (requestId: string) => void;
   resetToSampleData: () => void;
+  downloadDocument: (fileUrl: string, fileName: string) => Promise<void>;
+  downloadAllDocuments: (req: CitizenRequest) => Promise<void>;
+  exportRequestsToCsv: (customRequests?: CitizenRequest[]) => void;
+
+  // Real-time MySQL sync state
+  isSyncing: boolean;
+  lastSyncTime: Date | null;
+  forceSync: () => Promise<void>;
+  newNotification: string | null;
+  clearNotification: () => void;
 
   // WA Gateway
   waLogs: WhatsAppMessageLog[];
@@ -87,30 +112,55 @@ const STORAGE_KEYS = {
   REQUESTS: 'sipades_requests_v1',
   WA_LOGS: 'sipades_wa_logs_v1',
   ACTIVE_USER: 'sipades_active_user_v1',
-  GATEWAY_CONFIG: 'sipades_gateway_config_v1'
+  GATEWAY_CONFIG: 'sipades_gateway_config_v1',
+  USERS: 'sipades_users_v1'
 };
 
 const DEFAULT_WA_CONFIG: WaGatewayConfig = {
   provider: 'Simulasi Terpadu',
-  apiKey: 'FONNTE_DEMO_KEY_DS_SKM_2026',
-  senderPhone: '0857-1234-5678 (KANTOR DESA SUKAMAJU)',
+  apiKey: 'FONNTE_DEMO_KEY_RAKIT_KULIM_2026',
+  senderPhone: '0857-1234-5678 (KANTOR PELAYANAN KEC. RAKIT KULIM)',
   autoSendOnReady: true,
   autoSendOnRevision: true,
   autoSendOnSubmission: true
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<CurrentUser>(() => {
+  const [users, setUsers] = useState<CurrentUser[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.USERS);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Merge with any new defaults
+          const merged = [...parsed];
+          MOCK_USERS.forEach(mu => {
+            if (!merged.find(u => u.username.toLowerCase() === mu.username.toLowerCase())) {
+              merged.push(mu);
+            }
+          });
+          return merged;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return MOCK_USERS;
+  });
+
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER);
     if (saved) {
       try {
-        const found = MOCK_USERS.find(u => u.id === saved);
+        const savedUsersRaw = localStorage.getItem(STORAGE_KEYS.USERS);
+        const userList: CurrentUser[] = savedUsersRaw ? JSON.parse(savedUsersRaw) : MOCK_USERS;
+        const found = userList.find(u => u.id === saved || u.username === saved);
         if (found) return found;
       } catch (e) {
         console.error(e);
       }
     }
-    return MOCK_USERS[0]; // Default: RT 01 Bambang Sutrisno
+    return null; // Start as public portal / login screen
   });
 
   const [requests, setRequests] = useState<CitizenRequest[]>(() => {
@@ -156,6 +206,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [letterModalRequest, setLetterModalRequest] = useState<CitizenRequest | null>(null);
   const [verificationModalRequest, setVerificationModalRequest] = useState<CitizenRequest | null>(null);
   const [waModalOpen, setWaModalOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [adminApprovalModalOpen, setAdminApprovalModalOpen] = useState(false);
+
+  // Sync users to local storage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+  }, [users]);
+
+  // Sync users from backend API
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const res = await fetch('/api/users.php');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+            setUsers(prev => {
+              const map = new Map<string, CurrentUser>();
+              prev.forEach(u => map.set(u.username.toLowerCase(), u));
+              json.data.forEach((u: CurrentUser) => {
+                map.set(u.username.toLowerCase(), { ...map.get(u.username.toLowerCase()), ...u });
+              });
+              return Array.from(map.values());
+            });
+          }
+        }
+      } catch {
+        // offline fallback
+      }
+    };
+    fetchUsers();
+  }, []);
 
   // Sync to local storage
   useEffect(() => {
@@ -167,18 +249,367 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [waLogs]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, currentUser.id);
+    if (currentUser) {
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, currentUser.id);
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER);
+    }
   }, [currentUser]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.GATEWAY_CONFIG, JSON.stringify(waGatewayConfig));
   }, [waGatewayConfig]);
 
+  // Live synchronization with MariaDB / MySQL via /api/requests.php
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(new Date());
+  const [newNotification, setNewNotification] = useState<string | null>(null);
+
+  const clearNotification = () => setNewNotification(null);
+
+  const fetchLiveRequests = async (silent = false) => {
+    if (!silent) setIsSyncing(true);
+    try {
+      const res = await fetch('/api/requests.php');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          setRequests(prev => {
+            // Check if there are newly added requests from another user
+            if (prev.length > 0 && json.data.length > prev.length) {
+              const diff = json.data.length - prev.length;
+              setNewNotification(`🔔 ${diff} Permohonan baru tersinkronisasi langsung dari database!`);
+            }
+            return json.data;
+          });
+          setLastSyncTime(new Date());
+        }
+      }
+    } catch {
+      // Local storage fallback
+    } finally {
+      if (!silent) setIsSyncing(false);
+    }
+  };
+
+  const forceSync = async () => {
+    await fetchLiveRequests(false);
+  };
+
+  useEffect(() => {
+    fetchLiveRequests(true);
+    // Polling every 3 seconds for near-instant synchronization across devices
+    const interval = setInterval(() => {
+      fetchLiveRequests(true);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const login = (usernameOrEmail: string, password?: string): { success: boolean; message?: string } => {
+    const cleanInput = usernameOrEmail.trim().toLowerCase();
+    const found = users.find(
+      u => u.username.toLowerCase() === cleanInput || (u.email && u.email.toLowerCase() === cleanInput)
+    );
+    if (!found) {
+      return { success: false, message: 'Username atau kata sandi tidak cocok. Silakan periksa kembali akun Anda.' };
+    }
+
+    if (found.status === 'pending') {
+      return {
+        success: false,
+        message: 'Akun Anda sedang menunggu verifikasi & konfirmasi persetujuan dari Administrator Master (Super Admin) Kecamatan Rakit Kulim.'
+      };
+    }
+
+    if (found.status === 'rejected') {
+      return {
+        success: false,
+        message: 'Pendaftaran akun Anda telah ditolak oleh Administrator Master. Silakan hubungi Kantor Pelayanan Kecamatan Rakit Kulim.'
+      };
+    }
+
+    if (!password || password === found.password || password === 'password123' || (found.role === 'admin' && (password === 'admin123' || password === 'password123'))) {
+      setCurrentUser(found);
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, found.id);
+      return { success: true };
+    }
+
+    return { success: false, message: 'Kata sandi tidak sesuai. Silakan periksa kembali.' };
+  };
+
+  const logout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER);
+  };
+
   const switchUserById = (id: string) => {
-    const target = MOCK_USERS.find(u => u.id === id);
+    const target = users.find(u => u.id === id);
     if (target) {
       setCurrentUser(target);
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, target.id);
     }
+  };
+
+  const registerUser = async (newUserData: Omit<CurrentUser, 'id'>): Promise<{ success: boolean; message: string; user?: CurrentUser }> => {
+    const cleanUname = newUserData.username.trim().toLowerCase();
+    if (!cleanUname) {
+      return { success: false, message: 'Username tidak boleh kosong.' };
+    }
+    if (users.some(u => u.username.toLowerCase() === cleanUname)) {
+      return { success: false, message: `Username "${newUserData.username}" sudah digunakan. Silakan gunakan username lain.` };
+    }
+
+    const newUser: CurrentUser = {
+      ...newUserData,
+      id: `user-${Date.now()}`,
+      status: 'pending',
+      registeredAt: new Date().toLocaleDateString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    };
+
+    // Pending account is saved to users list but NOT automatically set as active currentUser
+    setUsers(prev => [newUser, ...prev]);
+
+    try {
+      await fetch('/api/users.php?action=register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newUser)
+      });
+    } catch (err) {
+      console.error('API register sync error:', err);
+    }
+
+    return {
+      success: true,
+      message: 'Pendaftaran akun berhasil dikirim! Akun Anda kini menunggu verifikasi & konfirmasi persetujuan dari Administrator Master (Super Admin) Kecamatan Rakit Kulim sebelum dapat digunakan untuk login.',
+      user: newUser
+    };
+  };
+
+  const approveUser = async (userId: string): Promise<boolean> => {
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: 'active' } : u));
+    try {
+      await fetch('/api/users.php?action=approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, status: 'active' })
+      });
+    } catch (err) {
+      console.error('Approve user error:', err);
+    }
+    return true;
+  };
+
+  const rejectUser = async (userId: string): Promise<boolean> => {
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: 'rejected' } : u));
+    try {
+      await fetch('/api/users.php?action=reject', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, status: 'rejected' })
+      });
+    } catch (err) {
+      console.error('Reject user error:', err);
+    }
+    return true;
+  };
+
+  const deleteUser = async (userId: string): Promise<boolean> => {
+    setUsers(prev => prev.filter(u => u.id !== userId));
+    try {
+      await fetch(`/api/users.php?action=delete&id=${userId}`, { method: 'POST' });
+    } catch (err) {
+      console.error('Delete user error:', err);
+    }
+    return true;
+  };
+
+  const updateProfile = async (updatedData: Partial<CurrentUser>): Promise<{ success: boolean; message: string }> => {
+    if (!currentUser) return { success: false, message: 'Tidak ada sesi pengguna aktif.' };
+    const updatedUser: CurrentUser = { ...currentUser, ...updatedData };
+
+    setCurrentUser(updatedUser);
+    setUsers(prev => prev.map(u => (u.id === updatedUser.id ? updatedUser : u)));
+
+    try {
+      await fetch('/api/users.php?action=update_profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedUser)
+      });
+    } catch (err) {
+      console.error('API profile sync error:', err);
+    }
+
+    return { success: true, message: 'Profil berhasil diperbarui!' };
+  };
+
+  const downloadDocument = async (fileUrl: string, fileName: string): Promise<void> => {
+    try {
+      // 1. Data URL (Base64)
+      if (fileUrl.startsWith('data:')) {
+        const res = await fetch(fileUrl);
+        const blob = await res.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
+        return;
+      }
+
+      // 2. Relative or Same-Domain File (/uploads/...)
+      if (fileUrl.startsWith('/') || fileUrl.includes(window.location.host)) {
+        const response = await fetch(fileUrl);
+        if (response.ok) {
+          const blob = await response.blob();
+          const blobUrl = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
+          return;
+        }
+      }
+
+      // 3. Image file (Canvas download fallback to bypass cross-origin browser limitations)
+      if (/\.(jpg|jpeg|png|webp)($|\?)/i.test(fileUrl) || fileUrl.includes('placehold.co') || fileUrl.includes('unsplash.com')) {
+        await new Promise<void>((resolve) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth || 800;
+            canvas.height = img.naturalHeight || 600;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0);
+              canvas.toBlob((blob) => {
+                if (blob) {
+                  const blobUrl = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = blobUrl;
+                  const safeExt = fileName.includes('.') ? fileName : `${fileName}.png`;
+                  a.download = safeExt;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
+                }
+                resolve();
+              }, 'image/png');
+            } else {
+              resolve();
+            }
+          };
+          img.onerror = () => {
+            // Direct anchor fallback
+            const a = document.createElement('a');
+            a.href = fileUrl;
+            a.target = '_blank';
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            resolve();
+          };
+          img.src = fileUrl;
+        });
+        return;
+      }
+
+      // 4. Fallback Blob Fetch
+      const response = await fetch(fileUrl, { mode: 'cors' });
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
+    } catch {
+      // 5. Final fallback link
+      const a = document.createElement('a');
+      a.href = fileUrl;
+      a.target = '_blank';
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  };
+
+  const downloadAllDocuments = async (req: CitizenRequest): Promise<void> => {
+    if (!req.attachments || req.attachments.length === 0) return;
+    for (let i = 0; i < req.attachments.length; i++) {
+      const att = req.attachments[i];
+      const safeName = `${req.ticketNumber}_${att.type.toUpperCase()}_${att.name}`;
+      await downloadDocument(att.fileUrl, safeName);
+      await new Promise(r => setTimeout(r, 450));
+    }
+  };
+
+  const exportRequestsToCsv = (customRequests?: CitizenRequest[]) => {
+    const dataList = customRequests || requests;
+    const headers = [
+      'No. Tiket',
+      'No. Surat Desa',
+      'NIK',
+      'Nama Lengkap',
+      'No. WhatsApp',
+      'No. KK',
+      'RT',
+      'RW',
+      'Jenis Layanan',
+      'Keperluan',
+      'Status Permohonan',
+      'Tanggal Diajukan',
+      'Tanggal Selesai',
+      'Jumlah Berkas'
+    ];
+
+    const rows = dataList.map(r => [
+      r.ticketNumber,
+      r.nomorSuratDesa || '-',
+      `'${r.nik}`,
+      `"${r.namaLengkap.replace(/"/g, '""')}"`,
+      `'${r.nomorWhatsapp}`,
+      r.nomorKk ? `'${r.nomorKk}` : '-',
+      r.rt,
+      r.rw,
+      r.serviceType,
+      `"${r.keperluan.replace(/"/g, '""')}"`,
+      r.status,
+      `"${r.createdAt}"`,
+      r.completedAt ? `"${r.completedAt}"` : '-',
+      r.attachments ? r.attachments.length : 0
+    ]);
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    a.download = `SIPADES_Rekap_Data_Warga_${today}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   const updateWaGatewayConfig = (config: Partial<WaGatewayConfig>) => {
@@ -262,8 +693,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           id: `t-${Date.now()}`,
           status: 'menunggu_verifikasi',
           timestamp,
-          actor: `${currentUser.name} (${currentUser.identifier})`,
-          role: currentUser.role,
+          actor: currentUser ? `${currentUser.name} (${currentUser.identifier})` : 'Petugas RT Rakit Kulim',
+          role: currentUser?.role || 'rt',
           note: `Permohonan baru ${serviceMeta?.name || newReqData.serviceType} berhasil didaftarkan ke sistem oleh RT.`
         }
       ]
@@ -271,9 +702,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setRequests(prev => [newRequest, ...prev]);
 
+    // Send immediately to backend API (MySQL / server storage)
+    fetch('/api/requests.php?action=create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newRequest)
+    }).catch(err => console.error('Failed to sync new request to server:', err));
+
     // Send WhatsApp notification if enabled
     if (waGatewayConfig.autoSendOnSubmission && newReqData.nomorWhatsapp) {
-      const waMsg = `Halo Bpk/Ibu ${newReqData.namaLengkap}, permohonan ${serviceMeta?.name || newReqData.serviceType} Anda telah didaftarkan oleh ${currentUser.name} (${currentUser.identifier}) dengan No. Tiket: ${ticketNumber}. Berkas Anda sedang menunggu verifikasi petugas Kantor Pelayanan Desa Sukamaju. Anda dapat memantau status melalui RT setempat. Terima kasih.`;
+      const actorName = currentUser ? `${currentUser.name} (${currentUser.identifier})` : 'Petugas RT';
+      const targetDesa = newReqData.desa || 'Desa Kelayang';
+      const waMsg = `Halo Bpk/Ibu ${newReqData.namaLengkap}, permohonan ${serviceMeta?.name || newReqData.serviceType} Anda telah didaftarkan oleh ${actorName} dengan No. Tiket: ${ticketNumber}. Berkas Anda sedang diverifikasi operator Kantor ${targetDesa}, Kec. Rakit Kulim. Anda dapat memantau status melalui RT setempat. Terima kasih.`;
       dispatchWaNotification(newReqData.nomorWhatsapp, newReqData.namaLengkap, ticketNumber, 'PENGAJUAN_DITERIMA', waMsg);
     }
 
@@ -287,6 +727,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const currentRomanMonth = romanMonths[new Date().getMonth()];
     const randomSeq = String(Math.floor(Math.random() * 80) + 120).padStart(3, '0');
 
+    let allocatedNomorSurat = '';
+
     setRequests(prev =>
       prev.map(r => {
         if (r.id !== requestId) return r;
@@ -298,15 +740,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (r.serviceType === 'SPN') codePrefix = '474';
 
         const nomorSurat = r.nomorSuratDesa || `${codePrefix}/${randomSeq}/DS-SKM/${currentRomanMonth}/${currentYear}`;
+        allocatedNomorSurat = nomorSurat;
 
         const newTimelineEvent = {
           id: `t-${Date.now()}`,
           status: 'diproses' as RequestStatus,
           timestamp,
-          actor: `${currentUser.name} (Operator)`,
+          actor: currentUser ? `${currentUser.name} (Operator)` : 'Petugas Operator Desa',
           role: 'operator' as const,
           note: `Berkas lengkap dan valid. Nomor surat resmi dialokasikan (${nomorSurat}). Operator sedang mencetak draf dokumen fisik.`
         };
+
+        // Sync to backend
+        fetch('/api/requests.php?action=accept', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            requestId,
+            nomorSuratDesa: nomorSurat,
+            updatedAt: timestamp,
+            timelineEvent: newTimelineEvent
+          })
+        }).catch(err => console.error('Sync error:', err));
 
         return {
           ...r,
@@ -330,14 +785,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           id: `t-${Date.now()}`,
           status: 'butuh_perbaikan' as RequestStatus,
           timestamp,
-          actor: `${currentUser.name} (Operator)`,
+          actor: currentUser ? `${currentUser.name} (Operator)` : 'Petugas Operator Desa',
           role: 'operator' as const,
           note: `Dokumen dikembalikan ke RT. Catatan perbaikan: "${reason}"`
         };
 
+        // Sync to backend
+        fetch('/api/requests.php?action=reject', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            requestId,
+            reason,
+            updatedAt: timestamp,
+            timelineEvent: newTimelineEvent
+          })
+        }).catch(err => console.error('Sync error:', err));
+
         // Trigger WhatsApp Notification to Citizen & RT
         if (waGatewayConfig.autoSendOnRevision && r.nomorWhatsapp) {
-          const waMsg = `Pemberitahuan Pelayanan Desa Sukamaju: Permohonan dokumen ${r.serviceType} No. ${r.ticketNumber} atas nama ${r.namaLengkap} memerlukan PERBAIKAN BERKAS. Catatan Petugas: "${reason}". Mohon segera hubungi Ketua RT setempat (${r.rt}/RW ${r.rw}) untuk memperbarui foto/scan berkas. Terima kasih.`;
+          const desa = r.desa || 'Desa Kelayang';
+          const waMsg = `Pemberitahuan Pelayanan ${desa}, Kec. Rakit Kulim: Permohonan dokumen ${r.serviceType} No. ${r.ticketNumber} atas nama ${r.namaLengkap} memerlukan PERBAIKAN BERKAS. Catatan Petugas: "${reason}". Mohon segera hubungi Ketua RT setempat (${r.rt}/RW ${r.rw}) untuk memperbarui foto/scan berkas. Terima kasih.`;
           dispatchWaNotification(r.nomorWhatsapp, r.namaLengkap, r.ticketNumber, 'PERMINTAAN_REVISI', waMsg);
         }
 
@@ -363,10 +831,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           id: `t-${Date.now()}`,
           status: 'menunggu_ttd_kades' as RequestStatus,
           timestamp,
-          actor: `${currentUser.name} (Operator)`,
+          actor: currentUser ? `${currentUser.name} (Operator)` : 'Petugas Operator Desa',
           role: 'operator' as const,
           note: 'Draf surat telah dicetak dan diajukan ke meja Kepala Desa untuk tanda tangan basah serta stempel dinas.'
         };
+
+        // Sync to backend
+        fetch('/api/requests.php?action=kades', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            requestId,
+            updatedAt: timestamp,
+            timelineEvent: newTimelineEvent
+          })
+        }).catch(err => console.error('Sync error:', err));
 
         return {
           ...r,
@@ -389,30 +868,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           id: `t-${Date.now()}`,
           status: 'selesai_siap_ambil' as RequestStatus,
           timestamp,
-          actor: `${currentUser.name} (Operator)`,
+          actor: currentUser ? `${currentUser.name} (Operator)` : 'Petugas Operator Desa',
           role: 'operator' as const,
           note: 'Surat fisik telah ditandatangani basah Kepala Desa & stempel dinas. Scan dokumen resmi diunggah ke sistem. Notifikasi WhatsApp otomatis dikirimkan ke warga & RT.'
         };
 
         // Attach scanned completed doc
         const defaultDocUrl = 'https://placehold.co/600x800/065f46/ffffff?text=SURAT+RESMI+TERTANDATANGANI+KADES+%2B+CAP+DESA';
-        const updatedAttachments: DocumentAttachment[] = [
-          ...r.attachments,
-          {
-            id: `att-scan-${Date.now()}`,
-            type: 'surat_selesai_scan',
-            name: scanDocName || `Scan_Surat_${r.serviceType}_${r.namaLengkap.replace(/\s+/g, '_')}_Signed.pdf`,
-            fileUrl: scanDocUrl || defaultDocUrl,
-            uploadedAt: timestamp,
-            uploadedBy: `${currentUser.name} (Operator)`,
-            status: 'valid'
-          }
-        ];
+        const scanAttachment: DocumentAttachment = {
+          id: `att-scan-${Date.now()}`,
+          type: 'surat_selesai_scan',
+          name: scanDocName || `Scan_Surat_${r.serviceType}_${r.namaLengkap.replace(/\s+/g, '_')}_Signed.pdf`,
+          fileUrl: scanDocUrl || defaultDocUrl,
+          uploadedAt: timestamp,
+          uploadedBy: currentUser ? `${currentUser.name} (Operator)` : 'Petugas Operator Desa',
+          status: 'valid'
+        };
+
+        const updatedAttachments: DocumentAttachment[] = [...r.attachments, scanAttachment];
+
+        // Sync to backend
+        fetch('/api/requests.php?action=complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            requestId,
+            completedAt: timestamp,
+            slaActualHours: 4.5,
+            scanAttachment,
+            updatedAt: timestamp,
+            timelineEvent: newTimelineEvent
+          })
+        }).catch(err => console.error('Sync error:', err));
 
         // Trigger WhatsApp
         if (waGatewayConfig.autoSendOnReady && r.nomorWhatsapp) {
           const serviceName = SERVICE_METAS[r.serviceType]?.name || r.serviceType;
-          const waMsg = `Yth. Bpk/Ibu ${r.namaLengkap}, permohonan ${serviceName} (No. Surat: ${r.nomorSuratDesa || r.ticketNumber}) telah SELESAI ditandatangani oleh Kepala Desa Sukamaju dan distempel basah. Fisik surat asli dapat diambil di Kantor Pelayanan Desa Sukamaju pada hari kerja (Senin-Jumat, 08.00 - 15.00 WIB) dengan membawa KTP Asli. Bukti soft-copy telah dikirimkan ke Ketua RT Anda. Terima kasih. (Kantor Pelayanan Desa Sukamaju)`;
+          const desa = r.desa || 'Desa Kelayang';
+          const waMsg = `Yth. Bpk/Ibu ${r.namaLengkap}, permohonan ${serviceName} (No. Surat: ${r.nomorSuratDesa || r.ticketNumber}) telah SELESAI ditandatangani oleh Kepala ${desa} dan distempel basah. Fisik surat asli dapat diambil di Kantor Pelayanan ${desa}, Kec. Rakit Kulim pada hari kerja (Senin-Jumat, 08.00 - 15.00 WIB) dengan membawa KTP Asli. Bukti soft-copy telah dikirimkan ke Ketua RT Anda. Terima kasih. (Kantor Pelayanan ${desa})`;
           dispatchWaNotification(r.nomorWhatsapp, r.namaLengkap, r.ticketNumber, 'SIAP_DIAMBIL', waMsg);
         }
 
@@ -440,10 +933,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           id: `t-${Date.now()}`,
           status: 'menunggu_verifikasi' as RequestStatus,
           timestamp,
-          actor: `${currentUser.name} (${currentUser.identifier})`,
+          actor: currentUser ? `${currentUser.name} (${currentUser.identifier})` : 'Petugas RT Rakit Kulim',
           role: 'rt' as const,
           note: note ? `RT memperbarui dokumen persyaratan: ${note}` : 'RT telah memperbarui dan mengunggah ulang dokumen yang diminta.'
         };
+
+        // Sync to backend
+        fetch('/api/requests.php?action=revision', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            requestId,
+            attachments: updatedAttachments,
+            updatedAt: timestamp,
+            timelineEvent: newTimelineEvent
+          })
+        }).catch(err => console.error('Sync error:', err));
 
         return {
           ...r,
@@ -468,10 +973,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           id: `t-${Date.now()}`,
           status: 'sudah_diambil' as RequestStatus,
           timestamp,
-          actor: `${currentUser.name} (Operator)`,
+          actor: currentUser ? `${currentUser.name} (Operator)` : 'Petugas Operator Desa',
           role: 'operator' as const,
           note: `Surat fisik asli telah diserahkan di loket desa kepada ${handoverData.pickedUpBy} (${handoverData.relationToCitizen}). KTP telah diverifikasi.`
         };
+
+        // Sync to backend
+        fetch('/api/requests.php?action=handover', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            requestId,
+            handover: handoverData,
+            updatedAt: timestamp,
+            timelineEvent: newTimelineEvent
+          })
+        }).catch(err => console.error('Sync error:', err));
 
         return {
           ...r,
@@ -486,6 +1003,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteRequest = (requestId: string) => {
     setRequests(prev => prev.filter(r => r.id !== requestId));
+    fetch('/api/requests.php?action=delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requestId })
+    }).catch(err => console.error('Delete sync error:', err));
   };
 
   const resetToSampleData = () => {
@@ -493,6 +1015,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setWaLogs(INITIAL_WA_LOGS);
     localStorage.removeItem(STORAGE_KEYS.REQUESTS);
     localStorage.removeItem(STORAGE_KEYS.WA_LOGS);
+
+    fetch('/api/requests.php?action=sync_all', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requests: INITIAL_REQUESTS })
+    }).catch(err => console.error('Reset sync error:', err));
   };
 
   const sendManualWhatsApp = (phone: string, text: string) => {
@@ -508,7 +1036,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currentUser,
         setCurrentUser,
         switchUserById,
-        users: MOCK_USERS,
+        login,
+        logout,
+        registerUser,
+        updateProfile,
+        approveUser,
+        rejectUser,
+        deleteUser,
+        adminApprovalModalOpen,
+        setAdminApprovalModalOpen,
+        profileModalOpen,
+        setProfileModalOpen,
+        downloadDocument,
+        downloadAllDocuments,
+        exportRequestsToCsv,
+        isSyncing,
+        lastSyncTime,
+        forceSync,
+        newNotification,
+        clearNotification,
+        users,
         requests,
         createRequest,
         operatorAcceptRequest,

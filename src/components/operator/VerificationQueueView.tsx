@@ -14,7 +14,8 @@ import {
   Phone,
   Send,
   ExternalLink,
-  X
+  X,
+  Download
 } from 'lucide-react';
 
 export const VerificationQueueView: React.FC = () => {
@@ -23,7 +24,9 @@ export const VerificationQueueView: React.FC = () => {
     operatorAcceptRequest,
     operatorRequestRevision,
     setSelectedRequest,
-    currentUser
+    currentUser,
+    downloadDocument,
+    downloadAllDocuments
   } = useApp();
 
   // Requests that are pending verification
@@ -183,20 +186,31 @@ export const VerificationQueueView: React.FC = () => {
                     <span className="text-slate-800 font-medium">{req.keperluan}</span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="text-slate-400 text-[11px]">Berkas Lampiran:</span>
                     {req.attachments.map(att => (
-                      <a
+                      <button
                         key={att.id}
-                        href={att.fileUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-2 py-1 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded text-[11px] font-medium text-blue-700 flex items-center gap-1"
+                        type="button"
+                        onClick={() => downloadDocument(att.fileUrl, att.name)}
+                        className="px-2 py-1 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded text-[11px] font-medium text-emerald-700 hover:text-emerald-900 flex items-center gap-1 cursor-pointer transition shadow-2xs"
+                        title={`Unduh ${att.name}`}
                       >
-                        <FileText className="w-3 h-3" />
+                        <Download className="w-3 h-3 text-emerald-600" />
                         <span>{att.type.toUpperCase()}</span>
-                      </a>
+                      </button>
                     ))}
+                    {req.attachments.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => downloadAllDocuments(req)}
+                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-bold flex items-center gap-1 cursor-pointer transition shadow-2xs"
+                        title="Unduh Semua Berkas Warga dari RT (KTP & KK)"
+                      >
+                        <Download className="w-3 h-3" />
+                        <span>Unduh Semua Berkas ({req.attachments.length})</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -253,9 +267,21 @@ export const VerificationQueueView: React.FC = () => {
 
               {/* Uploaded Documents Preview */}
               <div>
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
-                  Pratinjau Berkas Lampiran Warga:
-                </h4>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    Pratinjau Berkas Lampiran Warga:
+                  </h4>
+                  {inspectingReq.attachments.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => downloadAllDocuments(inspectingReq)}
+                      className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition shadow-2xs"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Unduh Semua Berkas ({inspectingReq.attachments.length})</span>
+                    </button>
+                  )}
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {inspectingReq.attachments.map(att => (
                     <div
@@ -275,16 +301,26 @@ export const VerificationQueueView: React.FC = () => {
                           className="w-full h-full object-cover"
                         />
                       </div>
-                      <div className="flex items-center justify-between text-[11px]">
+                      <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-200">
                         <span className="text-slate-400">Oleh: {att.uploadedBy}</span>
-                        <a
-                          href={att.fileUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
-                        >
-                          <ExternalLink className="w-3 h-3" /> Buka Tab Baru
-                        </a>
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={att.fileUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+                          >
+                            <ExternalLink className="w-3 h-3" /> Lihat
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => downloadDocument(att.fileUrl, att.name)}
+                            className="px-2 py-0.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[10px] flex items-center gap-1 cursor-pointer transition shadow-2xs"
+                            title="Unduh Berkas ke Laptop"
+                          >
+                            <Download className="w-3 h-3" /> Unduh File
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}

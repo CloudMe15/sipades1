@@ -74,7 +74,7 @@ export const HandoverBookView: React.FC = () => {
       pickedUpAt: timestampStr,
       pickedUpBy: pickedUpBy || handoverReq.namaLengkap,
       relationToCitizen: relation,
-      operatorName: currentUser.name,
+      operatorName: currentUser?.name || 'Asep Ridwan, S.Kom',
       notes: notes || undefined,
       idCardVerified: true
     });

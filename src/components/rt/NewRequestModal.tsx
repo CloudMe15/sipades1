@@ -36,7 +36,7 @@ export const NewRequestModal: React.FC<NewRequestModalProps> = ({
   const [agama, setAgama] = useState('Islam');
   const [pekerjaan, setPekerjaan] = useState('Wiraswasta');
   const [alamat, setAlamat] = useState('Kp. Babakan RT 01 / RW 03');
-  const [rtVal, setRtVal] = useState(currentUser.identifier.includes('02') ? '02' : '01');
+  const [rtVal, setRtVal] = useState(currentUser?.identifier.includes('02') ? '02' : '01');
   const [rwVal, setRwVal] = useState('03');
   const [keperluan, setKeperluan] = useState('');
 
@@ -146,6 +146,24 @@ export const NewRequestModal: React.FC<NewRequestModalProps> = ({
         } else {
           setAdditionalDoc({ name: file.name, url: resultUrl });
         }
+
+        // Send to backend /api/upload.php to persist in /uploads/
+        try {
+          const formData = new FormData();
+          formData.append('file', file);
+          fetch('/api/upload.php', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+              if (data && data.success && data.fileUrl) {
+                if (type === 'ktp') setKtpDoc({ name: file.name, url: data.fileUrl });
+                else if (type === 'kk') setKkDoc({ name: file.name, url: data.fileUrl });
+                else setAdditionalDoc({ name: file.name, url: data.fileUrl });
+              }
+            })
+            .catch(() => {});
+        } catch {
+          // Keep base64 fallback
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -182,7 +200,7 @@ export const NewRequestModal: React.FC<NewRequestModalProps> = ({
         'https://placehold.co/600x400/0f766e/ffffff?text=SCAN+KTP+ASLI+' +
           encodeURIComponent(namaLengkap),
       uploadedAt: 'Baru saja diunggah',
-      uploadedBy: `${currentUser.name} (${currentUser.identifier})`,
+      uploadedBy: currentUser ? `${currentUser.name} (${currentUser.identifier})` : 'Petugas RT Rakit Kulim',
       status: 'pending'
     });
 
@@ -196,7 +214,7 @@ export const NewRequestModal: React.FC<NewRequestModalProps> = ({
         'https://placehold.co/600x400/0f766e/ffffff?text=SCAN+KK+' +
           encodeURIComponent(namaLengkap),
       uploadedAt: 'Baru saja diunggah',
-      uploadedBy: `${currentUser.name} (${currentUser.identifier})`,
+      uploadedBy: currentUser ? `${currentUser.name} (${currentUser.identifier})` : 'Petugas RT Rakit Kulim',
       status: 'pending'
     });
 
@@ -208,7 +226,7 @@ export const NewRequestModal: React.FC<NewRequestModalProps> = ({
         name: additionalDoc.name,
         fileUrl: additionalDoc.url,
         uploadedAt: 'Baru saja diunggah',
-        uploadedBy: `${currentUser.name} (${currentUser.identifier})`,
+        uploadedBy: currentUser ? `${currentUser.name} (${currentUser.identifier})` : 'Petugas RT Rakit Kulim',
         status: 'pending'
       });
     }
@@ -223,7 +241,7 @@ export const NewRequestModal: React.FC<NewRequestModalProps> = ({
       nik,
       namaLengkap,
       nomorWhatsapp,
-      nomorKk: nomorKk || '3201141102990001',
+      nomorKk: nomorKk || '1402010101990001',
       tempatLahir,
       tanggalLahir,
       jenisKelamin,
@@ -232,7 +250,7 @@ export const NewRequestModal: React.FC<NewRequestModalProps> = ({
       alamat,
       rt: rtVal,
       rw: rwVal,
-      desa: 'Desa Sukamaju',
+      desa: currentUser?.village || 'Desa Kelayang',
       serviceType,
       keperluan,
       rincianTambahan: Object.keys(rincian).length > 0 ? rincian : undefined,
@@ -256,7 +274,7 @@ export const NewRequestModal: React.FC<NewRequestModalProps> = ({
                 Formulir Pengajuan Surat Warga
               </h3>
               <p className="text-xs text-emerald-100">
-                Diinput oleh Pengurus {currentUser.identifier} • Warga tidak perlu datang antre
+                Diinput oleh Pengurus {currentUser?.identifier || 'RT Setempat'} • Warga tidak perlu datang antre
               </p>
             </div>
           </div>
@@ -576,7 +594,7 @@ export const NewRequestModal: React.FC<NewRequestModalProps> = ({
               rows={2}
               value={keperluan}
               onChange={e => setKeperluan(e.target.value)}
-              placeholder="Contoh: Persyaratan pengajuan modal usaha Kredit Usaha Rakyat (KUR) di Bank BRI Unit Sukamaju."
+              placeholder="Contoh: Persyaratan pengajuan modal usaha Kredit Usaha Rakyat (KUR) di Bank BRI Unit Kelayang / Rakit Kulim."
               className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
               required
             />
